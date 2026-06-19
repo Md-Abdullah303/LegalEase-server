@@ -70,13 +70,25 @@ async function run() {
         query.hiringApplicantId = req.query.userId;
       }
       console.log(req.query.lawyerId, req.query.userId);
-      const result = await applicationCollection.findOne(query);
-      res.send(result);
+      const cursor = applicationCollection.find(query);
+      const result = await cursor.toArray();
+      res.send(result || []);
     });
 
     app.post("/api/applications", async (req, res) => {
       const application = req.body;
       const result = await applicationCollection.insertOne(application);
+      res.send(result);
+    });
+
+    app.patch("/api/applications/:id", async (req, res) => {
+      const { id } = req.params;
+      const updatedData = req.body;
+      const filter = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: updatedData,
+      };
+      const result = await applicationCollection.updateOne(filter, updateDoc);
       res.send(result);
     });
 
