@@ -30,18 +30,28 @@ async function run() {
     const database = client.db("legal-ease");
     const userCollection = database.collection("user");
 
-    // user related API
+    // lawyer related API
     // app.get("/api/users", async (req, res) => {
     //   const cursor = userCollection.find();
     //   const result = await cursor.toArray();
     //   res.send(result);
     // });
-    app.get("/api/users/:id", async (req, res) => {
+    app.get("/api/lawyers/:id", async (req, res) => {
       const { id } = req.params;
       const query = {
         _id: new ObjectId(id),
       };
       const result = await userCollection.findOne(query);
+      res.send(result);
+    });
+    app.patch("/api/lawyers/:id", async (req, res) => {
+      const { id } = req.params;
+      const updatedData = req.body;
+      const filter = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: updatedData,
+      };
+      const result = await userCollection.updateOne(filter, updateDoc);
       res.send(result);
     });
 
