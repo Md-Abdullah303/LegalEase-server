@@ -61,6 +61,19 @@ async function run() {
     });
 
     // application related API
+    app.get("/api/applications", async (req, res) => {
+      const query = {};
+      if (req.query.lawyerId) {
+        query.lawyerId = req.query.lawyerId;
+      }
+      if (req.query.userId) {
+        query.hiringApplicantId = req.query.userId;
+      }
+      console.log(req.query.lawyerId, req.query.userId);
+      const result = await applicationCollection.findOne(query);
+      res.send(result);
+    });
+
     app.post("/api/applications", async (req, res) => {
       const application = req.body;
       const result = await applicationCollection.insertOne(application);
