@@ -30,6 +30,7 @@ async function run() {
     const database = client.db("legal-ease");
     const userCollection = database.collection("user");
     const applicationCollection = database.collection("application");
+    const commentCollection = database.collection("comment");
 
     // lawyer related API
     app.get("/api/lawyers", async (req, res) => {
@@ -89,6 +90,19 @@ async function run() {
         $set: updatedData,
       };
       const result = await applicationCollection.updateOne(filter, updateDoc);
+      res.send(result);
+    });
+
+    // comment related API
+    app.get("/api/comments", async (req, res) => {
+      const query = {};
+      const cursor = commentCollection.find(query);
+      const result = await cursor.toArray();
+      res.send(result || []);
+    });
+    app.post("/api/comments", async (req, res) => {
+      const comment = req.body;
+      const result = await commentCollection.insertOne(comment);
       res.send(result);
     });
 
