@@ -29,10 +29,15 @@ async function run() {
 
     const database = client.db("legal-ease");
     const userCollection = database.collection("user");
+    const applicationCollection = database.collection("application");
 
     // lawyer related API
     app.get("/api/lawyers", async (req, res) => {
-      const cursor = userCollection.find();
+      const query = {
+        role: "lawyer",
+        status: true,
+      };
+      const cursor = userCollection.find(query);
       const result = await cursor.toArray();
       res.send(result);
     });
@@ -52,6 +57,13 @@ async function run() {
         $set: updatedData,
       };
       const result = await userCollection.updateOne(filter, updateDoc);
+      res.send(result);
+    });
+
+    // application related API
+    app.post("/api/applications", async (req, res) => {
+      const application = req.body;
+      const result = await applicationCollection.insertOne(application);
       res.send(result);
     });
 
