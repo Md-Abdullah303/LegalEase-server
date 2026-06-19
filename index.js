@@ -31,11 +31,11 @@ async function run() {
     const userCollection = database.collection("user");
 
     // lawyer related API
-    // app.get("/api/users", async (req, res) => {
-    //   const cursor = userCollection.find();
-    //   const result = await cursor.toArray();
-    //   res.send(result);
-    // });
+    app.get("/api/lawyers", async (req, res) => {
+      const cursor = userCollection.find();
+      const result = await cursor.toArray();
+      res.send(result);
+    });
     app.get("/api/lawyers/:id", async (req, res) => {
       const { id } = req.params;
       const query = {
