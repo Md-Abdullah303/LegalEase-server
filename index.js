@@ -32,6 +32,16 @@ async function run() {
     const applicationCollection = database.collection("application");
     const commentCollection = database.collection("comment");
 
+    // admin related API
+    app.get("/api/admin/:id", async (req, res) => {
+      const { id } = req.params;
+      const filter = {
+        _id: new ObjectId(id),
+      };
+      const result = await userCollection.findOne(filter);
+      res.send(result);
+    });
+
     // user related API
     app.get("/api/users", async (req, res) => {
       const query = {};
