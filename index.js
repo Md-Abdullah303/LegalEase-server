@@ -66,6 +66,16 @@ async function run() {
       const result = await userCollection.updateOne(filter, updateDocument);
       res.send(result);
     });
+    app.get("/api/hires", async (req, res) => {
+      const query = {};
+      if (req.query.status) {
+        query.status = "Approved";
+      }
+      const cursor = applicationCollection.find(query);
+      const result = await cursor.toArray();
+      // console.log(query, result);
+      res.send(result);
+    });
 
     // user related API
     app.get("/api/users", async (req, res) => {
