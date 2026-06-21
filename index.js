@@ -198,8 +198,18 @@ async function run() {
       // console.log("Filter * UpdatedDoc", filter, updatedDocument, updatedDoc);
 
       const result = await commentCollection.updateOne(filter, updatedDocument);
-      console.log(result);
+      console.log("form Edit API : ", result);
       res.json(result);
+    });
+    app.delete("/api/comment", async (req, res) => {
+      const query = {};
+      if (req.query.userId && req.query.lawyerId) {
+        ((query.userId = req.query.userId),
+          (query.lawyerId = req.query.lawyerId));
+      }
+      const result = await commentCollection.deleteOne(query);
+      console.log("form delete API : ", result);
+      res.send(result);
     });
 
     await client.db("admin").command({ ping: 1 });
