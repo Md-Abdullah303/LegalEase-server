@@ -32,6 +32,28 @@ async function run() {
     const applicationCollection = database.collection("application");
     const commentCollection = database.collection("comment");
 
+    // user related API
+    app.get("/api/users", async (req, res) => {
+      const query = {};
+      if (req.query.userId) {
+        query._id = new ObjectId(req.query.userId);
+      }
+      const cursor = userCollection.find(query);
+      const result = await cursor.toArray();
+      res.send(result);
+    });
+    app.patch("/api/users/:id", async (req, res) => {
+      const { id } = req.params;
+      const updatedData = req.body;
+      const filter = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: updatedData,
+      };
+      console.log("update user api called", id, updatedData);
+      const result = await userCollection.updateOne(filter, updateDoc);
+      res.send(result);
+    });
+
     // lawyer related API
     app.get("/api/lawyers", async (req, res) => {
       const query = {
@@ -75,10 +97,54 @@ async function run() {
       const result = await cursor.toArray();
       res.send(result || []);
     });
+    // app.get("/api/applications", async (req, res) => {
+    //   const match = {};
+
+    //   if (req.query.lawyerId) {
+    //     match.lawyerId = req.query.lawyerId;
+    //   }
+
+    //   if (req.query.userId) {
+    //     match.hiringApplicantId = req.query.userId;
+    //   }
+
+    //   const result = await applicationCollection
+    //     .aggregate([
+    //       {
+    //         $addFields: {
+    //           lawyerObjectId: { $toObjectId: "$lawyerId" },
+    //         },
+    //       },
+    //       {
+    //         $match: match,
+    //       },
+    //       {
+    //         $lookup: {
+    //           from: "user",
+    //           localField: "lawyerObjectId",
+    //           foreignField: "_id",
+    //           as: "lawyer",
+    //         },
+    //       },
+    //       {
+    //         $unwind: {
+    //           path: "$lawyer",
+    //           preserveNullAndEmptyArrays: true,
+    //         },
+    //       },
+    //     ])
+    //     .toArray();
+
+    //   res.send(result);
+    // });
 
     app.post("/api/applications", async (req, res) => {
       const application = req.body;
-      const result = await applicationCollection.insertOne(application);
+      const applicationObj = {
+        ...application,
+        createdAt: new Date(),
+      };
+      const result = await applicationCollection.insertOne(applicationObj);
       res.send(result);
     });
 
@@ -96,13 +162,23 @@ async function run() {
     // comment related API
     app.get("/api/comments", async (req, res) => {
       const query = {};
+      if (req.query.lawyerId) {
+        query.lawyerId = req.query.lawyerId;
+      }
+      if (req.query.userId) {
+        query.userId = req.query.userId;
+      }
       const cursor = commentCollection.find(query);
       const result = await cursor.toArray();
       res.send(result || []);
     });
     app.post("/api/comments", async (req, res) => {
       const comment = req.body;
-      const result = await commentCollection.insertOne(comment);
+      const commentObj = {
+        ...comment,
+        createdAt: new Date(),
+      };
+      const result = await commentCollection.insertOne(commentObj);
       res.send(result);
     });
 
