@@ -76,6 +76,68 @@ async function run() {
       // console.log(query, result);
       res.send(result);
     });
+    app.get("/api/topcategories", async (req, res) => {
+      try {
+        // ১. শুধুমাত্র 'Approved' স্ট্যাটাস থাকা সফল হায়ারগুলোর মোট সংখ্যা বের করা হচ্ছে
+        const totalApprovedHires = await applicationCollection.countDocuments({
+          status: "Approved",
+        });
+
+        // যদি কোনো হায়ার না থাকে তবে খালি অ্যারে রিটার্ন করবে (division by zero এরর এড়াতে)
+        if (totalApprovedHires === 0) {
+          return res.send([]);
+        }
+
+        // ২. অ্যাগ্রিগেশন পাইপলাইন দিয়ে ক্যাটাগরি অনুযায়ী ডাটা প্রসেস করা হচ্ছে
+        const topCategories = await applicationCollection
+          .aggregate([
+            // ক) শুধুমাত্র Approved অ্যাপ্লিকেশন ফিল্টার করা হলো
+            {
+              $match: { status: "Approved" },
+            },
+            // খ) lawyerSpecialty অনুযায়ী গ্রুপ করে মোট সংখ্যা (count) বের করা হলো
+            {
+              $group: {
+                _id: "$lawyerSpecialty",
+                count: { $sum: 1 },
+              },
+            },
+            // গ) UI এর সাথে মিলিয়ে অবজেক্ট ফরম্যাট এবং পার্সেন্টেজ (%) ক্যালকুলেট করা হলো
+            {
+              $project: {
+                _id: 0,
+                name: "$_id",
+                count: 1,
+                percentage: {
+                  $round: [
+                    {
+                      $multiply: [
+                        { $divide: ["$count", totalApprovedHires] },
+                        100,
+                      ],
+                    },
+                    0, // দশমিক মুক্ত পূর্ণসংখ্যা রাখার জন্য (যেমন: 75)
+                  ],
+                },
+              },
+            },
+            // ঘ) সবচেয়ে বেশি হায়ার হওয়া ক্যাটাগরি সবার উপরে রাখার জন্য সর্ট করা হলো
+            {
+              $sort: { count: -1 },
+            },
+            // ঙ) টপ ৪টি ক্যাটাগরি নেওয়ার জন্য লিমিট করা হলো
+            {
+              $limit: 4,
+            },
+          ])
+          .toArray();
+
+        res.send(topCategories);
+      } catch (error) {
+        console.error("Aggregation Error:", error);
+        res.status(500).send({ error: "Failed to fetch top categories" });
+      }
+    });
 
     // user related API
     app.get("/api/users", async (req, res) => {
