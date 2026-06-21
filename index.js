@@ -41,6 +41,31 @@ async function run() {
       const result = await userCollection.findOne(filter);
       res.send(result);
     });
+    app.get("/api/allUsers", async (req, res) => {
+      const query = {};
+      if (req.query.role) {
+        query.role = req.query.role;
+      }
+      if (req.query.status) {
+        query.status = true;
+      }
+      const cursor = userCollection.find(query);
+      const result = await cursor.toArray();
+      // console.log(query, result);
+      res.send(result);
+    });
+    app.patch("/api/admin/:id", async (req, res) => {
+      const { id } = req.params;
+      const updatedData = req.body;
+      const filter = {
+        _id: new ObjectId(id),
+      };
+      const updateDocument = {
+        $set: updatedData,
+      };
+      const result = await userCollection.updateOne(filter, updateDocument);
+      res.send(result);
+    });
 
     // user related API
     app.get("/api/users", async (req, res) => {
@@ -102,7 +127,7 @@ async function run() {
       if (req.query.userId) {
         query.hiringApplicantId = req.query.userId;
       }
-      console.log(req.query.lawyerId, req.query.userId);
+      // console.log(req.query.lawyerId, req.query.userId);
       const cursor = applicationCollection.find(query);
       const result = await cursor.toArray();
       res.send(result || []);
@@ -208,7 +233,7 @@ async function run() {
       // console.log("Filter * UpdatedDoc", filter, updatedDocument, updatedDoc);
 
       const result = await commentCollection.updateOne(filter, updatedDocument);
-      console.log("form Edit API : ", result);
+      // console.log("form Edit API : ", result);
       res.json(result);
     });
     app.delete("/api/comment", async (req, res) => {
@@ -218,7 +243,7 @@ async function run() {
           (query.lawyerId = req.query.lawyerId));
       }
       const result = await commentCollection.deleteOne(query);
-      console.log("form delete API : ", result);
+      // console.log("form delete API : ", result);
       res.send(result);
     });
 
