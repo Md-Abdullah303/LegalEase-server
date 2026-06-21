@@ -49,7 +49,7 @@ async function run() {
       const updateDoc = {
         $set: updatedData,
       };
-      console.log("update user api called", id, updatedData);
+      // console.log("update user api called", id, updatedData);
       const result = await userCollection.updateOne(filter, updateDoc);
       res.send(result);
     });
@@ -180,6 +180,26 @@ async function run() {
       };
       const result = await commentCollection.insertOne(commentObj);
       res.send(result);
+    });
+    app.patch("/api/comment", async (req, res) => {
+      const query = {};
+      const updatedDoc = req.body;
+      if (req.query.userId && req.query.lawyerId) {
+        query.userId = req.query.userId;
+        query.lawyerId = req.query.lawyerId;
+      }
+      const filter = {
+        ...query,
+      };
+      const updatedDocument = {
+        $set: updatedDoc,
+      };
+
+      // console.log("Filter * UpdatedDoc", filter, updatedDocument, updatedDoc);
+
+      const result = await commentCollection.updateOne(filter, updatedDocument);
+      console.log(result);
+      res.json(result);
     });
 
     await client.db("admin").command({ ping: 1 });
