@@ -31,6 +31,7 @@ async function run() {
     const userCollection = database.collection("user");
     const applicationCollection = database.collection("application");
     const commentCollection = database.collection("comment");
+    const paymentHistoryCollection = database.collection("payments");
 
     // admin related API
     app.get("/api/admin/:id", async (req, res) => {
@@ -251,6 +252,15 @@ async function run() {
         ...application,
         createdAt: new Date(),
       };
+      await userCollection.updateOne(
+        { _id: new ObjectId(application?.lawyerId) },
+        {
+          $inc: {
+            hire: 1,
+          },
+        },
+      );
+
       const result = await applicationCollection.insertOne(applicationObj);
       res.send(result);
     });
@@ -317,6 +327,40 @@ async function run() {
       const result = await commentCollection.deleteOne(query);
       // console.log("form delete API : ", result);
       res.send(result);
+    });
+
+    // payment related api
+    app.post("/api/payment", async (req, res) => {
+      const { sessionId, userId, lawyerId, price } = req.body;
+
+      const isExist = await paymentHistoryCollection.findOne({ sessionId });
+      if (isExist) {
+        return res.json({ msg: "Already exist!" });
+      }
+
+      // await userCollection.updateOne(
+      //   { _id: new ObjectId(userId) },
+      //   { $set: { isPaid: true } },
+      // );
+
+      await paymentHistoryCollection.insertOne({
+        ...req.body,
+        createdAt: new Date(),
+      });
+
+      res.send({ msg: "Payment was successful!" });
+    });
+    app.get("/api/singleData/payment", async (req, res) => {
+      const query = {};
+      if (req.query.userId) {
+        query.userId = req.query.userId;
+      }
+      if (req.query.lawyerId) {
+        query.lawyerId = req.query.lawyerId;
+      }
+      const result = await paymentHistoryCollection.findOne(query);
+      // console.log(result, query);
+      res.send(result || {});
     });
 
     await client.db("admin").command({ ping: 1 });
