@@ -193,8 +193,8 @@ async function run() {
         const finalSort =
           Object.keys(sort).length > 0 ? sort : { createdAt: -1 };
 
-        console.log("Final Query:", query);
-        console.log("Final Sort:", finalSort);
+        // console.log("Final Query:", query);
+        // console.log("Final Sort:", finalSort);
 
         const cursor = userCollection.find(query).sort(finalSort);
         const result = await cursor.toArray();
@@ -389,11 +389,6 @@ async function run() {
         return res.json({ msg: "Already exist!" });
       }
 
-      // await userCollection.updateOne(
-      //   { _id: new ObjectId(userId) },
-      //   { $set: { isPaid: true } },
-      // );
-
       await paymentHistoryCollection.insertOne({
         ...req.body,
         createdAt: new Date(),
@@ -412,6 +407,18 @@ async function run() {
       const result = await paymentHistoryCollection.findOne(query);
       // console.log(result, query);
       res.send(result || {});
+    });
+    app.get("/api/multiple/payment", async (req, res) => {
+      const query = {};
+      if (req.query.userId) {
+        query.userId = req.query.userId;
+      }
+      if (req.query.lawyerId) {
+        query.lawyerId = req.query.lawyerId;
+      }
+      const result = await paymentHistoryCollection.find(query).toArray();
+      // console.log(`form payment`, result, query);
+      res.send(result);
     });
 
     await client.db("admin").command({ ping: 1 });
