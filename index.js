@@ -164,13 +164,46 @@ async function run() {
 
     // lawyer related API
     app.get("/api/lawyers", async (req, res) => {
-      const query = {
-        role: "lawyer",
-        status: true,
-      };
-      const cursor = userCollection.find(query);
-      const result = await cursor.toArray();
-      res.send(result);
+      try {
+        const query = {
+          role: "lawyer",
+          status: true,
+        };
+        const sort = {};
+
+        if (req.query.search) {
+          query.$or = [
+            { name: { $regex: req.query.search, $options: "i" } },
+            { specialty: { $regex: req.query.search, $options: "i" } },
+          ];
+        }
+
+        if (req.query.salary === "salary_desc") {
+          sort.salary = -1;
+        } else if (req.query.salary === "salary_asc") {
+          sort.salary = 1;
+        }
+
+        if (req.query.popularity === "popular_desc") {
+          sort.hire = -1;
+        } else if (req.query.popularity === "popular_asc") {
+          sort.hire = 1;
+        }
+
+        const finalSort =
+          Object.keys(sort).length > 0 ? sort : { createdAt: -1 };
+
+        console.log("Final Query:", query);
+        console.log("Final Sort:", finalSort);
+
+        const cursor = userCollection.find(query).sort(finalSort);
+        const result = await cursor.toArray();
+
+        res.send(result);
+      } catch (error) {
+        console.error("Error fetching lawyers:", error);
+        res.status(500).send({ error: "Failed to fetch lawyers data" });
+      }
     });
     app.get("/api/lawyers/:id", async (req, res) => {
       const { id } = req.params;
@@ -332,13 +365,16 @@ async function run() {
     // featured related api
     app.get("/api/feature", async (req, res) => {
       const query = {};
+      let cursor;
       if (req.query.role) {
         query.role = req.query.role;
+        cursor = userCollection.find(query).sort({ createdAt: -1 }).limit(6);
       }
-      const cursor = userCollection
-        .find(query)
-        .sort({ createdAt: -1 })
-        .limit(6);
+      if (req.query.topHire) {
+        query.role = "lawyer";
+        cursor = userCollection.find(query).sort({ hire: -1 });
+      }
+
       const result = await cursor.toArray();
       // console.log(result, query);
       res.send(result);
