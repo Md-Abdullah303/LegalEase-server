@@ -329,6 +329,21 @@ async function run() {
       res.send(result);
     });
 
+    // featured related api
+    app.get("/api/feature", async (req, res) => {
+      const query = {};
+      if (req.query.role) {
+        query.role = req.query.role;
+      }
+      const cursor = userCollection
+        .find(query)
+        .sort({ createdAt: -1 })
+        .limit(6);
+      const result = await cursor.toArray();
+      // console.log(result, query);
+      res.send(result);
+    });
+
     // payment related api
     app.post("/api/payment", async (req, res) => {
       const { sessionId, userId, lawyerId, price } = req.body;
