@@ -27,6 +27,22 @@ async function run() {
   try {
     await client.connect();
 
+    const monthNames = [
+      "",
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ];
+
     const database = client.db("legal-ease");
     const userCollection = database.collection("user");
     const applicationCollection = database.collection("application");
@@ -138,6 +154,19 @@ async function run() {
         console.error("Aggregation Error:", error);
         res.status(500).send({ error: "Failed to fetch top categories" });
       }
+    });
+    app.patch("/api/changUserRole/:id", async (req, res) => {
+      const { id } = req.params;
+      const updatedData = req.body;
+      const filter = {
+        _id: new ObjectId(id),
+      };
+      const updatedDocument = {
+        $set: updatedData,
+      };
+      const result = await userCollection.updateOne(filter, updatedDocument);
+      console.log(result, updatedData, updatedDocument);
+      res.send(result);
     });
 
     // user related API
