@@ -1,3 +1,6 @@
+const dns = require("node:dns");
+dns.setServers(["8.8.8.8", "8.8.4.4"]);
+
 const express = require("express");
 require("dotenv").config();
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
@@ -26,7 +29,7 @@ const client = new MongoClient(uri, {
 
 async function run() {
   try {
-    await client.connect();
+    // await client.connect();
 
     const monthNames = [
       "",
@@ -51,7 +54,7 @@ async function run() {
     const paymentHistoryCollection = database.collection("payments");
 
     const JWKS = createRemoteJWKSet(
-      new URL(`http://localhost:3000/api/auth/jwks`),
+      new URL(`${process.env.NEXT_PUBLIC_URL}/api/auth/jwks`),
     );
 
     const verifyToken = async (req, res, next) => {
@@ -481,7 +484,7 @@ async function run() {
       res.send(result);
     });
 
-    await client.db("admin").command({ ping: 1 });
+    // await client.db("admin").command({ ping: 1 });
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!",
     );
