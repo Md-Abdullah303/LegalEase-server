@@ -3,6 +3,7 @@ require("dotenv").config();
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const app = express();
 const cors = require("cors");
+const { createRemoteJWKSet, jwtVerify } = require("jose-cjs");
 const port = process.env.PORT || 5555;
 
 // meddleware
@@ -49,8 +50,33 @@ async function run() {
     const commentCollection = database.collection("comment");
     const paymentHistoryCollection = database.collection("payments");
 
+    const JWKS = createRemoteJWKSet(
+      new URL(`http://localhost:3000/api/auth/jwks`),
+    );
+
+    const verifyToken = async (req, res, next) => {
+      const authHeader = req?.headers.authorization;
+      if (!authHeader) {
+        return res.status(401).json({ message: "You are Unauthorized" });
+      }
+      const token = authHeader.split(" ")[1];
+      if (!token) {
+        return res.status(401).json({ message: "You are Unauthorized" });
+      }
+
+      try {
+        const { payload } = await jwtVerify(token, JWKS);
+        next();
+        // console.log(payload);
+      } catch (error) {
+        return res
+          .status(403)
+          .json({ message: "Forbidden, it's not for you." });
+      }
+    };
+
     // admin related API
-    app.get("/api/admin/:id", async (req, res) => {
+    app.get("/api/admin/:id", verifyToken, async (req, res) => {
       const { id } = req.params;
       const filter = {
         _id: new ObjectId(id),
@@ -58,7 +84,7 @@ async function run() {
       const result = await userCollection.findOne(filter);
       res.send(result);
     });
-    app.get("/api/allUsers", async (req, res) => {
+    app.get("/api/allUsers", verifyToken, async (req, res) => {
       const query = {};
       if (req.query.role) {
         query.role = req.query.role;
@@ -83,7 +109,7 @@ async function run() {
       const result = await userCollection.updateOne(filter, updateDocument);
       res.send(result);
     });
-    app.get("/api/hires", async (req, res) => {
+    app.get("/api/hires", verifyToken, async (req, res) => {
       const query = {};
       if (req.query.status) {
         query.status = "Approved";
@@ -93,7 +119,7 @@ async function run() {
       // console.log(query, result);
       res.send(result);
     });
-    app.get("/api/topcategories", async (req, res) => {
+    app.get("/api/topcategories", verifyToken, async (req, res) => {
       try {
         // ১. শুধুমাত্র 'Approved' স্ট্যাটাস থাকা সফল হায়ারগুলোর মোট সংখ্যা বের করা হচ্ছে
         const totalApprovedHires = await applicationCollection.countDocuments({
@@ -168,9 +194,17 @@ async function run() {
       console.log(result, updatedData, updatedDocument);
       res.send(result);
     });
+    app.delete("/api/changUserRole/:id", async (req, res) => {
+      const { id } = req.params;
+      const filter = {
+        _id: new ObjectId(id),
+      };
+      const result = await userCollection.deleteOne(filter);
+      res.send(result);
+    });
 
     // user related API
-    app.get("/api/users", async (req, res) => {
+    app.get("/api/users", verifyToken, async (req, res) => {
       const query = {};
       if (req.query.userId) {
         query._id = new ObjectId(req.query.userId);
@@ -208,9 +242,9 @@ async function run() {
         }
 
         if (req.query.salary === "salary_desc") {
-          sort.salary = -1;
+          sort.hourlyRate = -1;
         } else if (req.query.salary === "salary_asc") {
-          sort.salary = 1;
+          sort.hourlyRate = 1;
         }
 
         if (req.query.popularity === "popular_desc") {
@@ -222,9 +256,6 @@ async function run() {
         const finalSort =
           Object.keys(sort).length > 0 ? sort : { createdAt: -1 };
 
-        // console.log("Final Query:", query);
-        // console.log("Final Sort:", finalSort);
-
         const cursor = userCollection.find(query).sort(finalSort);
         const result = await cursor.toArray();
 
@@ -234,7 +265,7 @@ async function run() {
         res.status(500).send({ error: "Failed to fetch lawyers data" });
       }
     });
-    app.get("/api/lawyers/:id", async (req, res) => {
+    app.get("/api/lawyers/:id", verifyToken, async (req, res) => {
       const { id } = req.params;
       const query = {
         _id: new ObjectId(id),
@@ -254,7 +285,7 @@ async function run() {
     });
 
     // application related API
-    app.get("/api/applications", async (req, res) => {
+    app.get("/api/applications", verifyToken, async (req, res) => {
       const query = {};
       if (req.query.lawyerId) {
         query.lawyerId = req.query.lawyerId;
@@ -339,7 +370,7 @@ async function run() {
     });
 
     // comment related API
-    app.get("/api/comments", async (req, res) => {
+    app.get("/api/comments", verifyToken, async (req, res) => {
       const query = {};
       if (req.query.lawyerId) {
         query.lawyerId = req.query.lawyerId;
@@ -425,7 +456,7 @@ async function run() {
 
       res.send({ msg: "Payment was successful!" });
     });
-    app.get("/api/singleData/payment", async (req, res) => {
+    app.get("/api/singleData/payment", verifyToken, async (req, res) => {
       const query = {};
       if (req.query.userId) {
         query.userId = req.query.userId;
@@ -437,7 +468,7 @@ async function run() {
       // console.log(result, query);
       res.send(result || {});
     });
-    app.get("/api/multiple/payment", async (req, res) => {
+    app.get("/api/multiple/payment", verifyToken, async (req, res) => {
       const query = {};
       if (req.query.userId) {
         query.userId = req.query.userId;
