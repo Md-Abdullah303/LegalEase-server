@@ -259,12 +259,10 @@ async function run() {
     // lawyer related API
     app.get("/api/lawyers", async (req, res) => {
       try {
-        const query = {
-          role: "lawyer",
-          status: true,
-        };
+        const query = { role: "lawyer", status: true };
         const sort = {};
 
+        // search
         if (req.query.search) {
           query.$or = [
             { name: { $regex: req.query.search, $options: "i" } },
@@ -272,30 +270,44 @@ async function run() {
           ];
         }
 
-        if (req.query.salary === "salary_desc") {
-          sort.hourlyRate = -1;
-        } else if (req.query.salary === "salary_asc") {
-          sort.hourlyRate = 1;
-        }
-
-        if (req.query.popularity === "popular_desc") {
-          sort.hire = -1;
-        } else if (req.query.popularity === "popular_asc") {
-          sort.hire = 1;
-        }
+        // sort
+        if (req.query.salary === "salary_desc") sort.hourlyRate = -1;
+        else if (req.query.salary === "salary_asc") sort.hourlyRate = 1;
+        if (req.query.popularity === "popular_desc") sort.hire = -1;
+        else if (req.query.popularity === "popular_asc") sort.hire = 1;
 
         const finalSort =
           Object.keys(sort).length > 0 ? sort : { createdAt: -1 };
 
-        const cursor = userCollection.find(query).sort(finalSort);
-        const result = await cursor.toArray();
+        // pagination — page আর limit query থেকে নেবে
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 12;
+        const skip = (page - 1) * limit;
 
-        res.send(result);
+        // total count আর data একসাথে fetch
+        const [total, result] = await Promise.all([
+          userCollection.countDocuments(query),
+          userCollection
+            .find(query)
+            .sort(finalSort)
+            .skip(skip)
+            .limit(limit)
+            .toArray(),
+        ]);
+
+        // total আর data দুইটাই পাঠাচ্ছি
+        res.send({
+          data: result,
+          total,
+          page,
+          totalPages: Math.ceil(total / limit),
+        });
       } catch (error) {
         console.error("Error fetching lawyers:", error);
         res.status(500).send({ error: "Failed to fetch lawyers data" });
       }
     });
+
     app.get("/api/lawyers/:id", verifyToken, async (req, res) => {
       const { id } = req.params;
       const query = {
