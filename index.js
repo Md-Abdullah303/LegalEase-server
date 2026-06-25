@@ -53,6 +53,20 @@ async function run() {
     const commentCollection = database.collection("comment");
     const paymentHistoryCollection = database.collection("payments");
 
+    // Ready for use but we cant bcz there are mixup in client code if we use it one side run and other side will be crushed...
+    // const verifyLawyer = async (req, res, next) => {
+    //   if (req?.user?.role !== "lawyer") {
+    //     return res.status(403).json({ message: "Lawyer only" });
+    //   }
+    //   next();
+    // };
+    // const verifyUser = async (req, res, next) => {
+    //   if (req?.user?.role !== "user") {
+    //     return res.status(403).json({ message: "User only" });
+    //   }
+    //   next();
+    // };
+
     const JWKS = createRemoteJWKSet(
       new URL(`${process.env.NEXT_PUBLIC_URL}/api/auth/jwks`),
     );
@@ -69,17 +83,24 @@ async function run() {
 
       try {
         const { payload } = await jwtVerify(token, JWKS);
+        // console.log("user :", payload);
+        req.user = payload;
         next();
-        // console.log(payload);
       } catch (error) {
         return res
           .status(403)
           .json({ message: "Forbidden, it's not for you." });
       }
     };
+    const verifyAdmin = async (req, res, next) => {
+      if (req?.user?.role !== "admin") {
+        return res.status(403).json({ message: "Admin only" });
+      }
+      next();
+    };
 
     // admin related API
-    app.get("/api/admin/:id", verifyToken, async (req, res) => {
+    app.get("/api/admin/:id", verifyToken, verifyAdmin, async (req, res) => {
       const { id } = req.params;
       const filter = {
         _id: new ObjectId(id),
@@ -87,7 +108,7 @@ async function run() {
       const result = await userCollection.findOne(filter);
       res.send(result);
     });
-    app.get("/api/allUsers", verifyToken, async (req, res) => {
+    app.get("/api/allUsers", verifyToken, verifyAdmin, async (req, res) => {
       const query = {};
       if (req.query.role) {
         query.role = req.query.role;
@@ -112,7 +133,7 @@ async function run() {
       const result = await userCollection.updateOne(filter, updateDocument);
       res.send(result);
     });
-    app.get("/api/hires", verifyToken, async (req, res) => {
+    app.get("/api/hires", verifyToken, verifyAdmin, async (req, res) => {
       const query = {};
       if (req.query.status) {
         query.status = "Approved";
@@ -122,68 +143,75 @@ async function run() {
       // console.log(query, result);
       res.send(result);
     });
-    app.get("/api/topcategories", verifyToken, async (req, res) => {
-      try {
-        // ১. শুধুমাত্র 'Approved' স্ট্যাটাস থাকা সফল হায়ারগুলোর মোট সংখ্যা বের করা হচ্ছে
-        const totalApprovedHires = await applicationCollection.countDocuments({
-          status: "Approved",
-        });
-
-        // যদি কোনো হায়ার না থাকে তবে খালি অ্যারে রিটার্ন করবে (division by zero এরর এড়াতে)
-        if (totalApprovedHires === 0) {
-          return res.send([]);
-        }
-
-        // ২. অ্যাগ্রিগেশন পাইপলাইন দিয়ে ক্যাটাগরি অনুযায়ী ডাটা প্রসেস করা হচ্ছে
-        const topCategories = await applicationCollection
-          .aggregate([
-            // ক) শুধুমাত্র Approved অ্যাপ্লিকেশন ফিল্টার করা হলো
+    app.get(
+      "/api/topcategories",
+      verifyToken,
+      verifyAdmin,
+      async (req, res) => {
+        try {
+          // ১. শুধুমাত্র 'Approved' স্ট্যাটাস থাকা সফল হায়ারগুলোর মোট সংখ্যা বের করা হচ্ছে
+          const totalApprovedHires = await applicationCollection.countDocuments(
             {
-              $match: { status: "Approved" },
+              status: "Approved",
             },
-            // খ) lawyerSpecialty অনুযায়ী গ্রুপ করে মোট সংখ্যা (count) বের করা হলো
-            {
-              $group: {
-                _id: "$lawyerSpecialty",
-                count: { $sum: 1 },
+          );
+
+          // যদি কোনো হায়ার না থাকে তবে খালি অ্যারে রিটার্ন করবে (division by zero এরর এড়াতে)
+          if (totalApprovedHires === 0) {
+            return res.send([]);
+          }
+
+          // ২. অ্যাগ্রিগেশন পাইপলাইন দিয়ে ক্যাটাগরি অনুযায়ী ডাটা প্রসেস করা হচ্ছে
+          const topCategories = await applicationCollection
+            .aggregate([
+              // ক) শুধুমাত্র Approved অ্যাপ্লিকেশন ফিল্টার করা হলো
+              {
+                $match: { status: "Approved" },
               },
-            },
-            // গ) UI এর সাথে মিলিয়ে অবজেক্ট ফরম্যাট এবং পার্সেন্টেজ (%) ক্যালকুলেট করা হলো
-            {
-              $project: {
-                _id: 0,
-                name: "$_id",
-                count: 1,
-                percentage: {
-                  $round: [
-                    {
-                      $multiply: [
-                        { $divide: ["$count", totalApprovedHires] },
-                        100,
-                      ],
-                    },
-                    0, // দশমিক মুক্ত পূর্ণসংখ্যা রাখার জন্য (যেমন: 75)
-                  ],
+              // খ) lawyerSpecialty অনুযায়ী গ্রুপ করে মোট সংখ্যা (count) বের করা হলো
+              {
+                $group: {
+                  _id: "$lawyerSpecialty",
+                  count: { $sum: 1 },
                 },
               },
-            },
-            // ঘ) সবচেয়ে বেশি হায়ার হওয়া ক্যাটাগরি সবার উপরে রাখার জন্য সর্ট করা হলো
-            {
-              $sort: { count: -1 },
-            },
-            // ঙ) টপ ৪টি ক্যাটাগরি নেওয়ার জন্য লিমিট করা হলো
-            {
-              $limit: 4,
-            },
-          ])
-          .toArray();
+              // গ) UI এর সাথে মিলিয়ে অবজেক্ট ফরম্যাট এবং পার্সেন্টেজ (%) ক্যালকুলেট করা হলো
+              {
+                $project: {
+                  _id: 0,
+                  name: "$_id",
+                  count: 1,
+                  percentage: {
+                    $round: [
+                      {
+                        $multiply: [
+                          { $divide: ["$count", totalApprovedHires] },
+                          100,
+                        ],
+                      },
+                      0, // দশমিক মুক্ত পূর্ণসংখ্যা রাখার জন্য (যেমন: 75)
+                    ],
+                  },
+                },
+              },
+              // ঘ) সবচেয়ে বেশি হায়ার হওয়া ক্যাটাগরি সবার উপরে রাখার জন্য সর্ট করা হলো
+              {
+                $sort: { count: -1 },
+              },
+              // ঙ) টপ ৪টি ক্যাটাগরি নেওয়ার জন্য লিমিট করা হলো
+              {
+                $limit: 4,
+              },
+            ])
+            .toArray();
 
-        res.send(topCategories);
-      } catch (error) {
-        console.error("Aggregation Error:", error);
-        res.status(500).send({ error: "Failed to fetch top categories" });
-      }
-    });
+          res.send(topCategories);
+        } catch (error) {
+          console.error("Aggregation Error:", error);
+          res.status(500).send({ error: "Failed to fetch top categories" });
+        }
+      },
+    );
     app.patch("/api/changUserRole/:id", async (req, res) => {
       const { id } = req.params;
       const updatedData = req.body;
